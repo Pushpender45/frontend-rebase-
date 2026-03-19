@@ -7,22 +7,19 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// IMPROVED DB CONNECTION: Added options and robust error handling
+// Serverless friendly MongoDB connection
 const MONGODB_URI = process.env.MONGODB_URI;
 
-if (!MONGODB_URI) {
-  console.error("MONGODB_URI is not defined in .env file");
+if (MONGODB_URI) {
+  mongoose.connect(MONGODB_URI, {
+    useNewUrlParser: true,
+    useUnifiedTopology: true,
+  })
+    .then(() => console.log('✅ Connected to MongoDB'))
+    .catch(err => console.error('❌ Database connection error:', err));
+} else {
+  console.error("MONGODB_URI is not defined in environment variables");
 }
-
-mongoose.connect(MONGODB_URI, {
-  useNewUrlParser: true,
-  useUnifiedTopology: true,
-})
-  .then(() => console.log('✅ Connected to MongoDB'))
-  .catch(err => {
-    console.error('❌ Database connection error:', err);
-    process.exit(1); // Exit if DB connection fails for stability
-  });
 
 const todoSchema = new mongoose.Schema({
   title: {
@@ -38,6 +35,11 @@ const todoSchema = new mongoose.Schema({
 
 const Todo = mongoose.model('Todo', todoSchema);
 
+// Root Route (to prevent 404 on Vercel)
+app.get('/', (req, res) => {
+  res.send('✅ Todo API is running...');
+});
+
 // GET API
 app.get('/api/todos', async (req, res) => {
   try {
@@ -48,7 +50,7 @@ app.get('/api/todos', async (req, res) => {
   }
 });
 
-// FIXED POST API: Use title from body and add simple validation
+// POST API
 app.post('/api/todos', async (req, res) => {
   const { title } = req.body;
 
@@ -69,5 +71,9 @@ app.post('/api/todos', async (req, res) => {
   }
 });
 
-const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
+const PORT = process.env.PORT || 5001;
+if (process.env.NODE_ENV !== 'production') {
+  app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
+}
+
+module.exports = app;
