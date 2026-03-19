@@ -4,7 +4,15 @@ const cors = require('cors');
 require('dotenv').config();
 
 const app = express();
-app.use(cors());
+
+// Improved CORS for Vercel
+app.use(cors({
+  origin: '*',
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  optionsSuccessStatus: 200
+}));
+
 app.use(express.json());
 
 // Serverless friendly MongoDB connection
@@ -17,30 +25,17 @@ if (MONGODB_URI) {
   })
     .then(() => console.log('✅ Connected to MongoDB'))
     .catch(err => console.error('❌ Database connection error:', err));
-} else {
-  console.error("MONGODB_URI is not defined in environment variables");
 }
 
 const todoSchema = new mongoose.Schema({
-  title: {
-    type: String,
-    required: [true, 'Title is required'],
-    trim: true
-  },
-  completed: {
-    type: Boolean,
-    default: false
-  }
+  title: { type: String, required: true, trim: true },
+  completed: { type: Boolean, default: false }
 }, { timestamps: true });
 
 const Todo = mongoose.model('Todo', todoSchema);
 
-// Root Route (to prevent 404 on Vercel)
-app.get('/', (req, res) => {
-  res.send('✅ Todo API is running...');
-});
+app.get('/', (req, res) => res.send('✅ Todo API is running...'));
 
-// GET API
 app.get('/api/todos', async (req, res) => {
   try {
     const todos = await Todo.find().sort({ createdAt: -1 });
@@ -50,21 +45,12 @@ app.get('/api/todos', async (req, res) => {
   }
 });
 
-// POST API
 app.post('/api/todos', async (req, res) => {
   const { title } = req.body;
-
-  if (!title || title.trim() === "") {
-    return res.status(400).json({ message: "Title is required" });
-  }
-
-  const todo = new Todo({
-    title: title,
-    completed: false
-  });
-
+  if (!title) return res.status(400).json({ message: "Title is required" });
+  
   try {
-    const newTodo = await todo.save();
+    const newTodo = await new Todo({ title }).save();
     res.status(201).json(newTodo);
   } catch (err) {
     res.status(400).json({ message: err.message });
@@ -73,7 +59,7 @@ app.post('/api/todos', async (req, res) => {
 
 const PORT = process.env.PORT || 5001;
 if (process.env.NODE_ENV !== 'production') {
-  app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
+  app.listen(PORT, () => console.log(`🚀 Server on ${PORT}`));
 }
 
 module.exports = app;
